@@ -20,6 +20,18 @@ import {
   Cpu,
   Eye,
 } from "lucide-react"
+import axios from "axios"
+
+// Mapping for subscription_state to label
+const subscriptionStateMap: Record<string, string> = {
+  "1_draft": "Quotation",
+  "2_renewal": "Renewal Quotation",
+  "3_progress": "In Progress",
+  "4_paused": "Paused",
+  "5_renewed": "Renewed",
+  "6_churn": "Churned",
+  "7_upsell": "Upsell",
+};
 
 export default function Component() {
   const [customerId, setCustomerId] = useState("")
@@ -88,6 +100,7 @@ export default function Component() {
 
     setIsChecking(true)
     setScanProgress(0)
+    setCustomerData(null)
 
     // Enhanced scanning animation
     const scanningStages = [
@@ -117,22 +130,19 @@ export default function Component() {
       }
     }, 200)
 
-    setTimeout(() => {
-      setCustomerData({
-        id: customerId,
-        name: "JOHN DOE",
-        status: "CRITICAL_SUSPENSION",
-        lastPayment: "2024-11-15",
-        outstandingAmount: "Rp 450,000",
-        suspensionDate: "2024-12-01",
-        package: "PREMIUM_100MBPS",
-        threatLevel: "HIGH",
-        systemAccess: "DENIED",
-        encryptionStatus: "LOCKED",
-      })
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_SERVER_BACKEND_URL ?? "https://backend-api.apps.mycocolink.com";
+      const response = await axios.get(`${apiUrl}/api/v1/subscriptions`, {
+        params: { cid: customerId }
+      });
+      const result = response.data?.data?.[0] ?? null;
+      setCustomerData(result)
+    } catch (error: any) {
+      setCustomerData({ error: error?.response?.data?.message ?? "Terjadi kesalahan saat mengambil data." })
+    } finally {
       setIsChecking(false)
       setScanProgress(0)
-    }, 4000)
+    }
   }
 
   // Initial Loading Screen
@@ -553,198 +563,209 @@ export default function Component() {
               </div>
 
               {/* Customer Data Display */}
-              {customerData && (
-                <div className="relative border-2 border-red-500/50 bg-gradient-to-r from-red-900/10 to-red-800/10 rounded-lg overflow-hidden">
-                  <div className="absolute inset-0 bg-red-500/5 animate-pulse"></div>
-
-                  {/* Data Header */}
-                  <div className="bg-red-500/20 border-b border-red-500/50 p-3 md:p-4">
-                    <h3 className="text-red-400 font-semibold flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3 font-mono text-base md:text-lg">
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <Database className="w-4 h-4 md:w-5 md:h-5" />
-                        <span>THREAT_ASSESSMENT_COMPLETE</span>
+              {customerData && !customerData.error && (
+                <>
+                  <div className="relative border-2 border-cyan-500/50 bg-gradient-to-r from-cyan-900/10 to-blue-800/10 rounded-lg overflow-hidden">
+                    <div className="absolute inset-0 bg-cyan-500/5 animate-pulse"></div>
+                    <div className="bg-cyan-500/20 border-b border-cyan-500/50 p-3 md:p-4">
+                      <h3 className="text-cyan-400 font-semibold flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3 font-mono text-base md:text-lg">
+                        <div className="flex items-center gap-2 md:gap-3">
+                          <Database className="w-4 h-4 md:w-5 md:h-5" />
+                          <span>SUBSCRIPTION_STATUS</span>
+                        </div>
+                        <Badge className="bg-cyan-500/30 text-cyan-300 border-cyan-500/70 md:ml-auto text-xs">
+                          {subscriptionStateMap[customerData.subscription_state] || customerData.subscription_state || "-"}
+                        </Badge>
+                      </h3>
+                    </div>
+                    <div className="p-4 md:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 text-sm font-mono">
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">CID:</span>
+                          <span className="text-cyan-300 font-bold text-base md:text-lg">{customerData.cid}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">NAMA:</span>
+                          <span className="text-white font-bold">{customerData.partner_id?.[1]}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">PAKET:</span>
+                          <span className="text-cyan-300">{customerData.sale_order_template_id?.[1]}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">STATUS INVOICE:</span>
+                          <Badge className="bg-yellow-500/30 text-yellow-300 border-yellow-500/70 text-xs">
+                            {customerData.invoice_status}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">TAGIHAN:</span>
+                          <span className="text-red-400 font-bold text-base md:text-lg">
+                            {customerData.amount_total?.toLocaleString("id-ID", { style: "currency", currency: "IDR" })}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">TELEPON:</span>
+                          <span className="text-cyan-200">{customerData.phone}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">ALAMAT:</span>
+                          <span className="text-cyan-200">{customerData.street}, {customerData.city}, {customerData.state_id?.[1]}, {customerData.country_id?.[1]}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">TGL MULAI:</span>
+                          <span className="text-cyan-200">{customerData.start_date}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-gray-400 block">TGL TAGIHAN BERIKUTNYA:</span>
+                          <span className="text-cyan-200">{customerData.next_invoice_date}</span>
+                        </div>
+                        <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                          <span className="text-gray-400 block">CATATAN:</span>
+                          <span className="text-cyan-100" dangerouslySetInnerHTML={{ __html: customerData.note || "-" }} />
+                        </div>
                       </div>
-                      <Badge className="bg-red-500/30 text-red-300 border-red-500/70 md:ml-auto text-xs">
-                        HIGH_RISK
-                      </Badge>
-                    </h3>
+                    </div>
+                    {/* Data Layanan Internet */}
+                    {customerData.zms_services && customerData.zms_services.length > 0 && (
+                      <div className="border-t border-cyan-500/30 p-4 md:p-6">
+                        <h4 className="text-cyan-400 font-bold mb-4 font-mono text-base md:text-lg flex items-center gap-2">
+                          <Cpu className="w-4 h-4 md:w-5 md:h-5" />
+                          LAYANAN INTERNET
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 text-sm font-mono">
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">STATUS KONEKSI:</span>
+                            <Badge className={"text-xs " + (customerData.zms_services[0].state === "online" ? "bg-green-500/30 text-green-300 border-green-500/70" : "bg-red-500/30 text-red-300 border-red-500/70")}>{customerData.zms_services[0].state}</Badge>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">USERNAME:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].username}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">IP ADDRESS:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].online_framed_ipaddr}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">MAC ADDRESS:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].online_mac_addr}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">LAMA KONEKSI:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].online_acct_session_time_str}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">DOWNLOAD:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].online_acct_input_total_str}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">UPLOAD:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].online_acct_output_total_str}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">SISA MASA AKTIF:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].expired_time_str}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">PAKET INTERNET:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].profile_details?.name}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-400 block">BANDWIDTH:</span>
+                            <span className="text-cyan-200">{customerData.zms_services[0].profile_details?.bandwidth_up_mbps} / {customerData.zms_services[0].profile_details?.bandwidth_down_mbps} Mbps</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Data Grid */}
-                  <div className="p-4 md:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 text-sm font-mono">
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">CUSTOMER_ID:</span>
-                        <span className="text-cyan-300 font-bold text-base md:text-lg">{customerData.id}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">IDENTITY:</span>
-                        <span className="text-white font-bold">{customerData.name}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">SERVICE_PACKAGE:</span>
-                        <span className="text-cyan-300">{customerData.package}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">SYSTEM_STATUS:</span>
-                        <Badge className="bg-red-500/30 text-red-300 border-red-500/70 text-xs">
-                          {customerData.status}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">LAST_PAYMENT:</span>
-                        <span className="text-yellow-300">{customerData.lastPayment}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">DEBT_AMOUNT:</span>
-                        <span className="text-red-400 font-bold text-base md:text-lg">
-                          {customerData.outstandingAmount}
+                  {/* Fix Action Panel */}
+                  <div className="mt-6 md:mt-8 relative border-2 border-green-500/50 bg-gradient-to-r from-green-900/10 to-emerald-800/10 rounded-lg overflow-hidden">
+                    <div className="absolute inset-0 bg-green-500/5 animate-pulse"></div>
+                    <div className="bg-green-500/20 border-b border-green-500/50 p-3 md:p-4">
+                      <div className="flex items-center justify-center gap-2 md:gap-3">
+                        <Zap className="w-5 h-5 md:w-6 md:h-6 text-green-400 animate-pulse" />
+                        <span className="text-green-400 font-mono text-sm md:text-lg tracking-wider">
+                          RESOLUTION_PROTOCOLS_AVAILABLE
                         </span>
+                        <Activity className="w-5 h-5 md:w-6 md:h-6 text-green-400 animate-pulse" />
                       </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">THREAT_LEVEL:</span>
-                        <Badge className="bg-red-500/30 text-red-300 border-red-500/70 text-xs">
-                          {customerData.threatLevel}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">ACCESS_STATUS:</span>
-                        <span className="text-red-400 font-bold">{customerData.systemAccess}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-gray-400 block">ENCRYPTION:</span>
-                        <span className="text-red-400 font-bold">{customerData.encryptionStatus}</span>
+                    </div>
+                    <div className="p-4 md:p-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                        {/* Fix Payment Button */}
+                        <div className="relative group">
+                          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+                          <Button
+                            onClick={() => {
+                              setIsProcessingFix(true)
+                              setFixType("PAYMENT")
+                              setTimeout(() => {
+                                setIsProcessingFix(false)
+                                setFixType(null)
+                                alert("Payment portal initiated! Redirecting to secure payment gateway...")
+                              }, 3000)
+                            }}
+                            disabled={isProcessingFix}
+                            className="relative w-full h-16 md:h-20 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white border-2 border-cyan-500/50 font-mono text-sm md:text-lg group-hover:scale-105 transition-all duration-300"
+                          >
+                            <div className="flex flex-col items-center gap-1 md:gap-2">
+                              {isProcessingFix && fixType === "PAYMENT" ? (
+                                <>
+                                  <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  <span className="text-xs md:text-base">INITIALIZING...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="w-6 h-6 md:w-8 md:h-8" />
+                                  <span className="text-xs md:text-base">FIX_PAYMENT_ISSUE</span>
+                                  <span className="text-xs opacity-80 hidden md:block">SECURE_GATEWAY_ACCESS</span>
+                                </>
+                              )}
+                            </div>
+                          </Button>
+                        </div>
+                        {/* Fix Administration Button */}
+                        <div className="relative group">
+                          <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+                          <Button
+                            onClick={() => {
+                              setIsProcessingFix(true)
+                              setFixType("ADMIN")
+                              setTimeout(() => {
+                                setIsProcessingFix(false)
+                                setFixType(null)
+                                alert("Administration request submitted! Support team will contact you within 15 minutes.")
+                              }, 3000)
+                            }}
+                            disabled={isProcessingFix}
+                            className="relative w-full h-16 md:h-20 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white border-2 border-purple-500/50 font-mono text-sm md:text-lg group-hover:scale-105 transition-all duration-300"
+                          >
+                            <div className="flex flex-col items-center gap-1 md:gap-2">
+                              {isProcessingFix && fixType === "ADMIN" ? (
+                                <>
+                                  <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  <span className="text-xs md:text-base">CONTACTING...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Shield className="w-6 h-6 md:w-8 md:h-8" />
+                                  <span className="text-xs md:text-base">FIX_ADMINISTRATION</span>
+                                  <span className="text-xs opacity-80 hidden md:block">SUPPORT_TEAM_ACCESS</span>
+                                </>
+                              )}
+                            </div>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* Fix Action Panel */}
-              {customerData && (
-                <div className="mt-6 md:mt-8 relative border-2 border-green-500/50 bg-gradient-to-r from-green-900/10 to-emerald-800/10 rounded-lg overflow-hidden">
-                  <div className="absolute inset-0 bg-green-500/5 animate-pulse"></div>
-
-                  {/* Action Header */}
-                  <div className="bg-green-500/20 border-b border-green-500/50 p-3 md:p-4">
-                    <div className="flex items-center justify-center gap-2 md:gap-3">
-                      <Zap className="w-5 h-5 md:w-6 md:h-6 text-green-400 animate-pulse" />
-                      <span className="text-green-400 font-mono text-sm md:text-lg tracking-wider">
-                        RESOLUTION_PROTOCOLS_AVAILABLE
-                      </span>
-                      <Activity className="w-5 h-5 md:w-6 md:h-6 text-green-400 animate-pulse" />
-                    </div>
-                  </div>
-
-                  <div className="p-4 md:p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                      {/* Fix Payment Button */}
-                      <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-                        <Button
-                          onClick={() => {
-                            setIsProcessingFix(true)
-                            setFixType("PAYMENT")
-                            setTimeout(() => {
-                              setIsProcessingFix(false)
-                              setFixType(null)
-                              alert("Payment portal initiated! Redirecting to secure payment gateway...")
-                            }, 3000)
-                          }}
-                          disabled={isProcessingFix}
-                          className="relative w-full h-16 md:h-20 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white border-2 border-cyan-500/50 font-mono text-sm md:text-lg group-hover:scale-105 transition-all duration-300"
-                        >
-                          <div className="flex flex-col items-center gap-1 md:gap-2">
-                            {isProcessingFix && fixType === "PAYMENT" ? (
-                              <>
-                                <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span className="text-xs md:text-base">INITIALIZING...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CreditCard className="w-6 h-6 md:w-8 md:h-8" />
-                                <span className="text-xs md:text-base">FIX_PAYMENT_ISSUE</span>
-                                <span className="text-xs opacity-80 hidden md:block">SECURE_GATEWAY_ACCESS</span>
-                              </>
-                            )}
-                          </div>
-                        </Button>
-                      </div>
-
-                      {/* Fix Administration Button */}
-                      <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-                        <Button
-                          onClick={() => {
-                            setIsProcessingFix(true)
-                            setFixType("ADMIN")
-                            setTimeout(() => {
-                              setIsProcessingFix(false)
-                              setFixType(null)
-                              alert(
-                                "Administration request submitted! Support team will contact you within 15 minutes.",
-                              )
-                            }, 3000)
-                          }}
-                          disabled={isProcessingFix}
-                          className="relative w-full h-16 md:h-20 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white border-2 border-purple-500/50 font-mono text-sm md:text-lg group-hover:scale-105 transition-all duration-300"
-                        >
-                          <div className="flex flex-col items-center gap-1 md:gap-2">
-                            {isProcessingFix && fixType === "ADMIN" ? (
-                              <>
-                                <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span className="text-xs md:text-base">CONTACTING...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Shield className="w-6 h-6 md:w-8 md:h-8" />
-                                <span className="text-xs md:text-base">FIX_ADMINISTRATION</span>
-                                <span className="text-xs opacity-80 hidden md:block">PRIORITY_SUPPORT_CHANNEL</span>
-                              </>
-                            )}
-                          </div>
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Additional Action Info */}
-                    <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm font-mono">
-                      <div className="border border-cyan-500/30 p-3 md:p-4 bg-black/30 rounded">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 md:w-3 md:h-3 bg-cyan-400 rounded-full animate-pulse"></div>
-                          <span className="text-cyan-400 font-semibold text-xs md:text-sm">PAYMENT_RESOLUTION</span>
-                        </div>
-                        <ul className="text-gray-300 space-y-1 text-xs">
-                          <li>{">"} INSTANT_PAYMENT_PROCESSING</li>
-                          <li>{">"} MULTIPLE_GATEWAY_SUPPORT</li>
-                          <li>{">"} AUTO_SERVICE_RESTORATION</li>
-                          <li className="hidden md:block">{">"} QUANTUM_ENCRYPTION_SECURED</li>
-                        </ul>
-                      </div>
-
-                      <div className="border border-purple-500/30 p-3 md:p-4 bg-black/30 rounded">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 md:w-3 md:h-3 bg-purple-400 rounded-full animate-pulse"></div>
-                          <span className="text-purple-400 font-semibold text-xs md:text-sm">ADMIN_RESOLUTION</span>
-                        </div>
-                        <ul className="text-gray-300 space-y-1 text-xs">
-                          <li>{">"} PRIORITY_HUMAN_SUPPORT</li>
-                          <li>{">"} ACCOUNT_VERIFICATION_BYPASS</li>
-                          <li>{">"} CUSTOM_SOLUTION_PROTOCOL</li>
-                          <li className="hidden md:block">{">"} NEURAL_LINK_COMMUNICATION</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Emergency Override */}
-                    <div className="mt-4 md:mt-6 text-center">
-                      <div className="inline-flex items-center gap-2 text-yellow-400 text-xs md:text-sm font-mono">
-                        <AlertTriangle className="w-3 h-3 md:w-4 md:h-4 animate-pulse" />
-                        <span>EMERGENCY_OVERRIDE_AVAILABLE_24/7</span>
-                        <AlertTriangle className="w-3 h-3 md:w-4 md:h-4 animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
+              {/* Error Display */}
+              {customerData && customerData.error && (
+                <div className="p-4 bg-red-900/40 border border-red-500 text-red-300 rounded font-mono text-center">
+                  {customerData.error}
                 </div>
               )}
             </div>
